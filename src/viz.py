@@ -2,8 +2,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def bar(ax, x, y, title, xlabel, ylabel, grid: bool = True):
-    x = x
-    y = y
     ax.bar(x,y)
     ax.set_title(title)
     ax.set_xlabel(xlabel)
@@ -13,8 +11,6 @@ def bar(ax, x, y, title, xlabel, ylabel, grid: bool = True):
     return ax
 
 def hist(ax, x, bins, title, xlabel, ylabel, grid: bool = True):
-    x = x
-    bins = bins
     ax.hist(x,bins,edgecolor="black")
     ax.set_title(title)
     ax.set_xlabel(xlabel)
