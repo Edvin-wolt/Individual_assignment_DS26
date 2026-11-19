@@ -7,6 +7,9 @@ class Healthanalyzer:
         self.df: pd.DataFrame = load_file(path)
 
     def desc_stats(self) -> pd.DataFrame:
+        """
+        Tar fram statistik om numeriska kolumner
+        """
         return (
             self.df[["age", "weight", "height", "systolic_bp", "cholesterol"]]
             .agg(["mean", "median", "min", "max"])
