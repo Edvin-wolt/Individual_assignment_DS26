@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from IO_utils import load_file
+from src.io_utils import load_file
 
 class Healthanalyzer:
     def __init__(self, path: str):
