@@ -5,6 +5,12 @@ from sklearn.linear_model import LinearRegression
 from src.io_utils import load_file
 
 class HealthAnalyzer:
+    """
+    Genomför statistika analyser och simuleringar för givet dataset.
+
+    Hanterar statistik, konfidensintervavll, t-test, power-simuleringar
+    enkel och multipel regression.
+    """
     def __init__(self, path: str):
         self.df: pd.DataFrame = load_file(path)
         self.simple_model: LinearRegression
@@ -13,25 +19,34 @@ class HealthAnalyzer:
     def desc_stats(self) -> pd.DataFrame:
         """
         Tar fram statistik för numeriska kolumner
+        Ger oss:
+        Medelvärde, median, minsta värde, högsta värde
+        För kolumnerna:
+        Ålder, vikt, längd, blodtryck, kolesterol
         """
         return (
             self.df[["age", "weight", "height", "systolic_bp", "cholesterol"]]
             .agg(["mean", "median", "min", "max"])
         )
-    def sim_disease(self, n):
+    def sim_disease(self, n, column):
         """
-        Simulerar en andel som har en sjukdom och jämför med datans andel som
-        har sjukdomen.
+        Simulerar en andel som har sjukdom och genom urval med återlägging.
+        Ger oss andelar simulerade personer med sjukdom
         """
-        sample = np.random.choice(self.df["disease"], size=n, replace=True)
+        sample = np.random.choice(self.df[column], size=n, replace=True)
         share_sample = np.mean(sample)
         return share_sample
         
-    def ci_boot(self, n_boot):
+    def ci_boot(self, n_boot, column):
+        """
+        Räknar fram ett 95% konfidensintervall med bootstrapmetoden
+        Medelvärdet av systolic_bp
+        Returnerar lägsta och högsta värdet i konfidensintervallet
+        """
         mean_boot = np.empty(n_boot)
 
         for i in range(n_boot):
-            boot_sample = np.random.choice(self.df["systolic_bp"], size=len(self.df), replace=True)
+            boot_sample = np.random.choice(self.df[column], size=len(self.df), replace=True)
             mean_boot[i] = np.mean(boot_sample)
 
         boot_low = np.percentile(mean_boot, 2.5)
@@ -39,11 +54,16 @@ class HealthAnalyzer:
 
         return boot_low, boot_high
 
-    def ci_norm(self):
-        normal_mean_systolic_bp = np.mean(self.df["systolic_bp"])
+    def ci_norm(self, column):
+        """
+        Räknar fram ett 95% konfidensintervall med normalapproximationsmetoden
+        Använder kolumnen systolic_bp
+        Returnerar lägsta och högsta värdet i konfidensintervallet
+        """
+        normal_mean_systolic_bp = np.mean(self.df[column])
 
         n_normal = len(self.df)
-        normal_std_systolic_bp = np.std(self.df["systolic_bp"], ddof=1)
+        normal_std_systolic_bp = np.std(self.df[column], ddof=1)
         normal_se_systolic_bp = normal_std_systolic_bp / np.sqrt(n_normal)
 
         z = 1.96
@@ -54,18 +74,32 @@ class HealthAnalyzer:
 
         return normal_low, normal_high
 
-    def _smoker_groups(self) -> tuple:
+    def _smoker_groups(self):
+        """
+        Hjälpfunktion för att separera rökare och icke-rökare
+        Används för hypotesprövning och power-beräkningar
+        """
         smoker = self.df.loc[self.df["smoker"] == "Yes", "systolic_bp"].values
         non_smoker = self.df.loc[self.df["smoker"] == "No", "systolic_bp"].values
         return smoker, non_smoker
 
-    def _num_smoker_groups(self) -> tuple:
+    def _num_smoker_groups(self):
+        """
+        Hjälpfunktion för att ta fram antalet rökare och icke-rökare
+        Används för Power-beräkningar
+        """
         smoker, non_smoker = self._smoker_groups()
         n_smoker = len(smoker)
         n_non_smoker = len(non_smoker)
         return n_smoker, n_non_smoker
     
-    def _stat_smoker_groups(self) -> tuple:
+    def _stat_smoker_groups(self):
+        """
+        Hjälpfunktion för att ta fram:
+        Medelvärde, standardavvikelse för icke-rökare
+        Standardavvikelse för rökare
+        Används för Power-beräkningar.
+        """
         smoker, non_smoker = self._smoker_groups()
         mean_non_smoker = np.mean(non_smoker)
         std_non_smoker = np.std(non_smoker, ddof= 1)
@@ -73,6 +107,10 @@ class HealthAnalyzer:
         return mean_non_smoker, std_non_smoker,std_smoker
 
     def hypothesis_testing(self):
+        """
+        Genomför ett ensidigt welch t-test
+        Ger oss t-värde och p-värde
+        """
         smoker, non_smoker = self._smoker_groups()
         t_stat_w, p_value_w = stats.ttest_ind(
             smoker, non_smoker, equal_var=False, alternative="greater"
@@ -81,6 +119,10 @@ class HealthAnalyzer:
         return t_stat_w, p_value_w
 
     def sim_hypothesis_power(self, n_sims, alpha, effect):
+        """
+        Gör en simulering för att få fram power-värde för en specifik effekt.
+        Returnerar power-värdet
+        """
         n_smoker, n_non_smoker = self._num_smoker_groups()
         mean_non_smoker, std_non_smoker, std_smoker = self._stat_smoker_groups()
 
@@ -100,6 +142,11 @@ class HealthAnalyzer:
         return power
 
     def which_power(self, n_sims, effects, alpha):
+        """
+        Beräknar olika power-värden för olika effekter för att kunna se vilken effekt
+        som krävs för att nå över 80% power.
+        Returnerar en lista med effekterna och power-värderna
+        """
         n_smoker, n_non_smoker = self._num_smoker_groups()
         mean_non_smoker, std_non_smoker, std_smoker = self._stat_smoker_groups()
 
@@ -118,6 +165,11 @@ class HealthAnalyzer:
         return results
 
     def linear_regression(self, x_column, y_column,):
+        """
+        Utför beräkningar för en linjär regression.
+        Ger oss:
+        Skärningen, lutningen och r^2  
+        """
         X= self.df[[x_column]]
         y= self.df[y_column] 
 
@@ -131,12 +183,20 @@ class HealthAnalyzer:
         return intercept, slope, r2, X, y
 
     def predictions_and_residuals(self, X, y):
+        """
+        Räknar fram prognosiserade värden och residualer.
+        """
         predictions = self.simple_model.predict(X)
 
         residuals = y - predictions
         return predictions, residuals
 
     def multiple_regression(self, x_column_one, x_column_two, y_column,):
+        """
+        Utför beräkningar för en multipel regression.
+        Ger oss:
+        Skärningen, lutningen för kolumn x1, lutningen för x2 och r^2 
+        """
         X= self.df[[x_column_one, x_column_two]]
         y= self.df[y_column] 
 
@@ -151,6 +211,9 @@ class HealthAnalyzer:
         return intercept, slope_multi_one, slope_multi_two, r2, X, y
 
     def predictions_multi(self, X):
+        """
+        Räknar fram prognosiserade värden
+        """
         predictions_multi = self.multi_model.predict(X)
         return predictions_multi
 
