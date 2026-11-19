@@ -18,20 +18,20 @@ class HealthAnalyzer:
             self.df[["age", "weight", "height", "systolic_bp", "cholesterol"]]
             .agg(["mean", "median", "min", "max"])
         )
-    def sim_disease(self, n):
+    def sim_disease(self, n, column):
         """
         Simulerar en andel som har en sjukdom och jämför med datans andel som
         har sjukdomen.
         """
-        sample = np.random.choice(self.df["disease"], size=n, replace=True)
+        sample = np.random.choice(self.df[column], size=n, replace=True)
         share_sample = np.mean(sample)
         return share_sample
         
-    def ci_boot(self, n_boot):
+    def ci_boot(self, n_boot, column):
         mean_boot = np.empty(n_boot)
 
         for i in range(n_boot):
-            boot_sample = np.random.choice(self.df["systolic_bp"], size=len(self.df), replace=True)
+            boot_sample = np.random.choice(self.df[column], size=len(self.df), replace=True)
             mean_boot[i] = np.mean(boot_sample)
 
         boot_low = np.percentile(mean_boot, 2.5)
@@ -39,11 +39,11 @@ class HealthAnalyzer:
 
         return boot_low, boot_high
 
-    def ci_norm(self):
-        normal_mean_systolic_bp = np.mean(self.df["systolic_bp"])
+    def ci_norm(self, column):
+        normal_mean_systolic_bp = np.mean(self.df[column])
 
         n_normal = len(self.df)
-        normal_std_systolic_bp = np.std(self.df["systolic_bp"], ddof=1)
+        normal_std_systolic_bp = np.std(self.df[column], ddof=1)
         normal_se_systolic_bp = normal_std_systolic_bp / np.sqrt(n_normal)
 
         z = 1.96
@@ -54,18 +54,18 @@ class HealthAnalyzer:
 
         return normal_low, normal_high
 
-    def _smoker_groups(self) -> tuple:
+    def _smoker_groups(self):
         smoker = self.df.loc[self.df["smoker"] == "Yes", "systolic_bp"].values
         non_smoker = self.df.loc[self.df["smoker"] == "No", "systolic_bp"].values
         return smoker, non_smoker
 
-    def _num_smoker_groups(self) -> tuple:
+    def _num_smoker_groups(self):
         smoker, non_smoker = self._smoker_groups()
         n_smoker = len(smoker)
         n_non_smoker = len(non_smoker)
         return n_smoker, n_non_smoker
     
-    def _stat_smoker_groups(self) -> tuple:
+    def _stat_smoker_groups(self):
         smoker, non_smoker = self._smoker_groups()
         mean_non_smoker = np.mean(non_smoker)
         std_non_smoker = np.std(non_smoker, ddof= 1)
